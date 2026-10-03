@@ -144,9 +144,10 @@ function getOpeningBid(){
     if(c.S>=5) return "1♠";
     if(c.H>=5) return "1♥";
     if(h>=20 && h<=21 && ((shape[0]<=5 && shape[1]<=3)
-      || (shape[0]==shape[1]))) return "2NT";
+      ||  shape[0]<=4)) return "2NT";
     if(h>=15 && h<=17 && ((shape[0]<=5 && shape[1]<=3)
-      || (shape[0]==shape[1]))) return "1NT";
+      ||  shape[0]<=4)) return "1NT";
+   if(c.D==4 && c.C>=5) return "1♣";
     if(c.D>=4) return "1♦";
     return "1♣";
   }
