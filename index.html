@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridge Opening Bidding Trainer</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;background:linear-gradient(135deg,#fff0f6,#ffe4ef);color:#573647}
+  .wrap{max-width:900px;margin:auto;padding:20px}
+  .card{background:#fff;border-radius:24px;padding:22px;box-shadow:0 10px 30px #d96b9728;margin-bottom:18px}
+  h1{margin:0 0 8px;text-align:center;color:#d45b8a}
+  .sub{text-align:center;color:#8b6877;margin-bottom:16px}
+  .score{text-align:center;font-weight:700;background:#fff0f6;padding:12px;border-radius:16px;margin-bottom:18px}
+  .hand{display:grid;gap:10px;margin:18px 0}
+  .suitrow{display:flex;align-items:center;gap:12px;background:#fff7fa;border-radius:15px;padding:12px 16px;font-size:22px;font-weight:700}
+  .suit{width:38px;text-align:center}
+  .cards{font-size:21px;letter-spacing:5px;word-spacing:3px;flex:1}
+  .count{font-size:13px;color:#a17f8d;white-space:nowrap;font-weight:500;letter-spacing:0}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  label{font-weight:700}
+  input,select,button{width:100%;font:inherit;border-radius:14px;padding:13px;border:2px solid #f0c9d9}
+  input:focus,select:focus{outline:none;border-color:#e78bb0}
+  button{cursor:pointer;border:0;font-weight:800}
+  .primary{background:#e86f9d;color:white}
+  .secondary{background:#f8dce8;color:#75465a}
+  .buttons{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+  .result{text-align:center;font-size:18px;font-weight:800;padding:13px;border-radius:15px;margin-top:15px;display:none}
+  .ok{background:#e5f8ee;color:#23734a}
+  .bad{background:#fff0f4;color:#a13d5b}
+  details{margin-top:16px;background:#fff7f0;padding:12px 15px;border-radius:15px}
+  @media(max-width:600px){
+    .wrap{padding:12px}.card{padding:16px}.controls,.buttons{grid-template-columns:1fr}
+    .suitrow{padding:10px}.cards{font-size:18px;letter-spacing:3px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>🃏 Bridge Opening Bidding Trainer</h1>
+    <div class="sub">ฝึกเปิดประมูลแบบสุ่ม • SAYC</div>
+    <div id="score" class="score">ตอบถูก 0 จาก 0 ข้อ • 0%</div>
+
+    <div id="hand" class="hand"></div>
+
+    <div class="controls">
+      <div>
+        <label for="hcp">แต้ม HCP ของไพ่</label>
+        <input id="hcp" type="number" min="0" max="37" placeholder="ใส่แต้มที่นับได้">
+      </div>
+      <div>
+        <label for="bid">Opening Bid</label>
+        <select id="bid">
+          <option value="">เลือกคำตอบ</option>
+          <option>Pass</option>
+          <option>1♣</option><option>1♦</option><option>1♥</option><option>1♠</option>
+          <option>1NT</option>
+          <option>2♣</option><option>2♦</option><option>2♥</option><option>2♠</option>
+          <option>2NT</option>
+          <option>3♣</option><option>3♦</option><option>3♥</option><option>3♠</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button class="primary" onclick="checkAnswer()">ตรวจคำตอบ</button>
+      <button class="secondary" onclick="newHand()">🎲 สุ่มไพ่ใหม่</button>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <details>
+      <summary><b>📖 แนวทางฝึก</b></summary>
+      <p>ให้นักเรียนนับ HCP จากไพ่ 13 ใบ แล้วพิจารณารูปแบบไพ่และ Opening Bid ตามหลักที่ใช้ในแบบฝึกนี้</p>
+      <p><b>HCP:</b> A=4, K=3, Q=2, J=1</p>
+      <p><b>หมายเหตุ:</b> ระบบนี้เป็นแบบฝึกเบื้องต้น ไม่ครอบคลุมทุกข้อยกเว้นของ SAYC ในสถานการณ์แข่งขันจริง</p>
+    </details>
+  </div>
+</div>
+
+<script>
+let deck=[], hand=[], correct=0, total=0;
+
+const suits=[
+  {symbol:"♠", key:"S"},
+  {symbol:"♥", key:"H"},
+  {symbol:"♦", key:"D"},
+  {symbol:"♣", key:"C"}
+];
+const ranks=["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
+
+function makeDeck(){
+  const d=[];
+  suits.forEach(s=>ranks.forEach(r=>d.push({suit:s.key,symbol:s.symbol,rank:r})));
+  return d;
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function hcp(card){
+  return {A:4,K:3,Q:2,J:1}[card.rank]||0;
+}
+function getHCP(){
+  return hand.reduce((sum,c)=>sum+hcp(c),0);
+}
+function getCounts(){
+  const c={S:0,H:0,D:0,C:0};
+  hand.forEach(x=>c[x.suit]++);
+  return c;
+}
+function getShape(){
+  const c=getCounts();
+  return [c.S,c.H,c.D,c.C].sort((a,b)=>b-a);
+}
+function getOpeningBid(){
+  const h=getHCP(), c=getCounts(), shape=getShape();
+
+  if(h>=22) return "2♣";
+
+  if(h>=12){
+    if(c.S>=5) return "1♠";
+    if(c.H>=5) return "1♥";
+    if(h>=20 && h<=21 && ((shape[0]<=5 && shape[1]<=3)
+      || (shape[0]==shape[1]))) return "2NT";
+    if(h>=15 && h<=17 && ((shape[0]<=5 && shape[1]<=3)
+      || (shape[0]==shape[1]))) return "1NT";
+    if(c.D>=4) return "1♦";
+    return "1♣";
+  }
+
+  if(h>=6 && h<=11){
+    if(c.S>=7) return "3♠";
+    if(c.H>=7) return "3♥";
+    if(c.S>=7) return "3♦";
+    if(c.H>=7) return "3♣";
+    if(c.S==6 && c.H<=4) return "2♦";
+    if(c.H==6 && c.S<=4) return "2♦";
+    if(c.S==5 && (c.D>=4 || c.C>=4)) return "2♠";
+    if(c.H==5 && (c.D>=4 || c.C>=4)) return "2♥";
+  }
+  return "Pass";
+}
+function renderHand(){
+  const box=document.getElementById("hand");
+  box.innerHTML="";
+  suits.forEach(s=>{
+    const cards=hand.filter(c=>c.suit===s.key)
+      .sort((a,b)=>ranks.indexOf(a.rank)-ranks.indexOf(b.rank));
+    const row=document.createElement("div");
+    row.className="suitrow";
+    row.innerHTML='<span class="suit">'+s.symbol+'</span>'+
+      '<span class="cards">'+cards.map(c=>c.rank).join(" ")+'</span>'+
+      '<span class="count">'+cards.length+' ใบ</span>';
+    box.appendChild(row);
+  });
+}
+function updateScore(){
+  const pct=total?Math.round(correct/total*100):0;
+  document.getElementById("score").textContent=`ตอบถูก ${correct} จาก ${total} ข้อ • ${pct}%`;
+}
+function newHand(){
+  deck=shuffle(makeDeck());
+  hand=deck.slice(0,13);
+  document.getElementById("hcp").value="";
+  document.getElementById("bid").value="";
+  const r=document.getElementById("result");
+  r.style.display="none";
+  renderHand();
+}
+function checkAnswer(){
+  const enteredHcp=Number(document.getElementById("hcp").value);
+  const enteredBid=document.getElementById("bid").value;
+  if(!enteredBid || !document.getElementById("hcp").value){
+    alert("กรุณากรอก HCP และเลือก Opening Bid ก่อนตรวจคำตอบ");
+    return;
+  }
+  const actualHcp=getHCP();
+  const actualBid=getOpeningBid();
+  total++;
+  const ok=enteredHcp===actualHcp && enteredBid===actualBid;
+  if(ok) correct++;
+
+  const r=document.getElementById("result");
+  r.className="result "+(ok?"ok":"bad");
+  r.style.display="block";
+  r.innerHTML=ok
+    ? "🎉 ถูกต้อง! เก่งมากค่ะ"
+    : `❌ ยังไม่ถูก — HCP จริง ${actualHcp} แต้ม • Opening Bid คือ <b>${actualBid}</b>`;
+  updateScore();
+}
+newHand();
+</script>
+</body>
+</html>
