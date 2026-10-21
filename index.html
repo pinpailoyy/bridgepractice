@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridge Opening Bidding Trainer</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;background:linear-gradient(135deg,#fff0f6,#ffe4ef);color:#573647}
+  .wrap{max-width:900px;margin:auto;padding:20px}
+  .card{background:#fff;border-radius:24px;padding:22px;box-shadow:0 10px 30px #d96b9728;margin-bottom:18px}
+  h1{margin:0 0 8px;text-align:center;color:#d45b8a}
+  .sub{text-align:center;color:#8b6877;margin-bottom:16px}
+  .score{text-align:center;font-weight:700;background:#fff0f6;padding:12px;border-radius:16px;margin-bottom:18px}
+  .hand{display:grid;gap:10px;margin:18px 0}
+  .suitrow{display:flex;align-items:center;gap:12px;background:#fff7fa;border-radius:15px;padding:12px 16px;font-size:22px;font-weight:700}
+  .suit{width:38px;text-align:center}
+  .cards{font-size:21px;letter-spacing:5px;word-spacing:3px;flex:1}
+  .count{font-size:13px;color:#a17f8d;white-space:nowrap;font-weight:500;letter-spacing:0}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  label{font-weight:700}
+  input,select,button{width:100%;font:inherit;border-radius:14px;padding:13px;border:2px solid #f0c9d9}
+  input:focus,select:focus{outline:none;border-color:#e78bb0}
+  button{cursor:pointer;border:0;font-weight:800}
+  .primary{background:#e86f9d;color:white}
+  .secondary{background:#f8dce8;color:#75465a}
+  .buttons{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+  .result{text-align:center;font-size:18px;font-weight:800;padding:13px;border-radius:15px;margin-top:15px;display:none}
+  .ok{background:#e5f8ee;color:#23734a}
+  .bad{background:#fff0f4;color:#a13d5b}
+  details{margin-top:16px;background:#fff7f0;padding:12px 15px;border-radius:15px}
+  .modebar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 18px}
+  .mode{background:#fff0f6;color:#a14d72;border:2px solid #f2bfd3;padding:11px;border-radius:14px}
+  .mode.active{background:#e86f9d;color:#fff;border-color:#e86f9d}
+  .partner{background:linear-gradient(135deg,#fff0f6,#ffe1ed);border:2px solid #f3bdd2;border-radius:20px;padding:18px;text-align:center;margin-bottom:18px}
+  .partnerTitle{font-weight:800;color:#a34d70}
+  .partnerBid{font-size:42px;font-weight:900;color:#d84f83;margin:4px 0}
+  .partnerHint{font-size:14px;color:#8b6877}
+  @media(max-width:600px){
+    .wrap{padding:12px}.card{padding:16px}.controls,.buttons{grid-template-columns:1fr}
+    .suitrow{padding:10px}.cards{font-size:18px;letter-spacing:3px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>🃏 Bridge Opening Bidding Trainer</h1>
+    <div class="sub">ฝึกเปิดประมูล • ตอบรับ • Rebid (แนวทาง SAYC)</div>
+    <div id="score" class="score">ตอบถูก 0 จาก 0 ข้อ • 0%</div>
+
+    <div class="modebar">
+      <button id="modeOpen" class="mode active" onclick="setMode('open')">🃏 ฝึกเปิดไพ่</button>
+      <button id="modeRespond" class="mode" onclick="setMode('respond')">💗 ฝึกตอบรับ</button>
+      <button id="modeRebid" class="mode" onclick="setMode('rebid')">🔁 ฝึก Rebid</button>
+    </div>
+    <div id="respondPanel" class="partner" style="display:none">
+      <div class="partnerTitle">👫 เพื่อนเปิดประมูล</div>
+      <div id="partnerBid" class="partnerBid">1♠</div>
+      <div class="partnerHint">ถึงตาของคุณแล้ว — นับ HCP และเลือก Bid ตอบกลับ</div>
+    </div>
+    <div id="rebidPanel" class="partner" style="display:none">
+      <div class="partnerTitle">🔁 ลำดับการประมูลก่อนถึงตาคุณ</div>
+      <div id="auctionSequence" class="partnerBid" style="font-size:28px">1♣ — 1♥ — 1♠ — Pass</div>
+      <div class="partnerHint">คุณเป็นผู้เปิดประมูลครั้งแรก ตอนนี้ถึงตาคุณเลือก Rebid</div>
+    </div>
+    <div id="hand" class="hand"></div>
+
+    <div id="openControls" class="controls">
+      <div>
+        <label for="hcp">แต้ม HCP ของไพ่</label>
+        <input id="hcp" type="number" min="0" max="37" placeholder="ใส่แต้มที่นับได้">
+      </div>
+      <div>
+        <label for="bid">Opening Bid</label>
+        <select id="bid">
+          <option value="">เลือกคำตอบ</option>
+          <option>Pass</option>
+          <option>1♣</option><option>1♦</option><option>1♥</option><option>1♠</option>
+          <option>1NT</option>
+          <option>2♣</option><option>2♦</option><option>2♥</option><option>2♠</option>
+          <option>2NT</option>
+          <option>3♣</option><option>3♦</option><option>3♥</option><option>3♠</option><option>3NT</option>
+          <option>4♣</option><option>4♦</option><option>4♥</option><option>4♠</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="respondControls" class="controls" style="display:none">
+      <div>
+        <label for="respondHcp">แต้ม HCP ของไพ่</label>
+        <input id="respondHcp" type="number" min="0" max="37" placeholder="ใส่แต้มที่นับได้">
+      </div>
+      <div>
+        <label for="respondBid">Bid ตอบรับ</label>
+        <select id="respondBid">
+          <option value="">เลือกคำตอบ</option>
+          <option>Pass</option><option>1♣</option><option>1♦</option><option>1♥</option><option>1♠</option>
+          <option>1NT</option><option>2♣</option><option>2♦</option><option>2♥</option><option>2♠</option>
+          <option>2NT</option><option>3♣</option><option>3♦</option><option>3♥</option><option>3♠</option><option>3NT</option>
+          <option>4♣</option><option>4♦</option><option>4♥</option><option>4♠</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="rebidControls" class="controls" style="display:none">
+      <div>
+        <label for="rebidHcp">แต้ม HCP ของมือเปิด</label>
+        <input id="rebidHcp" type="number" min="0" max="37" placeholder="ใส่แต้มที่นับได้">
+      </div>
+      <div>
+        <label for="rebidBid">เลือก Rebid</label>
+        <select id="rebidBid">
+          <option value="">เลือกคำตอบ</option>
+          <option>Pass</option><option>1♣</option><option>1♦</option><option>1♥</option><option>1♠</option>
+          <option>1NT</option><option>2♣</option><option>2♦</option><option>2♥</option><option>2♠</option>
+          <option>2NT</option><option>3♣</option><option>3♦</option><option>3♥</option><option>3♠</option><option>3NT</option>
+          <option>4♣</option><option>4♦</option><option>4♥</option><option>4♠</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button class="primary" onclick="checkAnswer()">ตรวจคำตอบ</button>
+      <button class="secondary" onclick="newQuestion()">🎲 สุ่มโจทย์ใหม่</button>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <details>
+      <summary><b>📖 แนวทางการฝึก</b></summary>
+      <div id="guideOpen">
+        <p><b>ฝึกเปิดไพ่ (Opening Bid)</b></p>
+        <p>นับ HCP จากไพ่ 13 ใบ พิจารณา Shape และเลือกการเปิดประมูลที่เหมาะสม</p>
+        <p><b>HCP:</b> A=4, K=3, Q=2, J=1</p>
+        <p><b>หลักเปิดประมูลตามแบบฝึก</b></p>
+        1♣&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;12-21 HCP, ♣2+ card<br>
+        1♦&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;12-21 HCP, ♦4+ card<br>
+        1♥&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;12-21 HCP, ♥5+ card<br>
+        1♠&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;12-21 HCP, ♠5+ card<br>
+        1NT&nbsp;&nbsp;&nbsp;&nbsp;15-17 HCP, Balance, no 5 card Major<br>
+        2♣&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;22+ HCP, Any distribution<br>
+        2♦&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♥/♠6+ card<br>
+        2♥&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♥5&amp;4m+ card<br>
+        2♠&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♠5&amp;4m+ card<br>
+        2NT&nbsp;&nbsp;&nbsp;&nbsp;20-21 HCP, Balance, no 5 card Major<br>
+        3♣&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♣7+ card<br>
+        3♦&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♦7+ card<br>
+        3♥&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♥7+ card<br>
+        3♠&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6-11 HCP, ♠7+ card<br>
+      </div>
+      <div id="guideRespond" style="display:none">
+        <p><b>💗 ฝึกตอบรับ (Response)</b></p>
+        <p>คุณเป็นมือที่สอง (Responder) ให้ดู Opening Bid ของ Partner แล้วพิจารณาแต้ม HCP, ความยาวของชุด และการรับชุดของ Partner ก่อนเลือก Response Bid</p>
+        <ul>
+          <li><b>limit แต้ม</b></li>
+            1. รับชุด<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;1.1 รับชุดระดับต่ำสุด 6 - 9 HCP<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;1.2 รับชุดแบบ Jump 10 - 11 HCP<br>
+            2. เข้า NT<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;2.1 เข้า 1NT 6 -9 HCP<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;2.2 เข้า 2NT 10 - 11 HCP
+          <li><b>ไม่ limit แต้ม</b></li>
+            1. เปลี่ยนชุดใหม่ในระดับ 1 มีแต้ม 6+ HCP<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;(กรณีเปิด 1C ถ้ามี D4+ กับ M4 ให้บิดชุด Major ก่อน)<br>
+            2. เปลี่ยนชุดใหม่ระดับ 2 ในชุดทีjศักดิ์ต่ำกว่าชุดที่พาร์ทเนอร์เปิด แต้ม 10+ HCP
+        </ul>
+        <p><b>HCP:</b> A=4, K=3, Q=2, J=1</p>
+        <p><i>หมายเหตุ: แนวทางนี้เป็นแนวทางฝึกเบื้องต้น การตอบจริงต้องพิจารณาลำดับประมูลและข้อตกลงของคู่ด้วย</i></p>
+      </div>
+      <div id="guideRebid" style="display:none">
+        <p><b>🔁 ฝึก Rebid</b></p>
+        <p>คุณเป็นผู้เปิดประมูล (Opener) ให้ดู Opening Bid ของตนเองและ Response ของ Partner จากนั้นพิจารณา HCP, Shape และความยาวของสีเพื่อเลือก Rebid</p>
+        <p><i>หมายเหตุ: กฎ Rebid ในไฟล์นี้เป็นแบบฝึกเบื้องต้น ยังไม่ครอบคลุมทุกลำดับประมูล SAYC</i></p>
+      </div>
+      <p><b>หมายเหตุ:</b> ระบบนี้เป็นแบบฝึกเบื้องต้น</p>
+    </details>
+  </div>
+</div>
+
+<script>
+let deck=[], hand=[], correct=0, total=0,
+    bal = [[5,3,3,2], [4,4,3,2], [4,3,3,3]];
+
+const suits=[
+  {symbol:"♠", key:"S"},
+  {symbol:"♥", key:"H"},
+  {symbol:"♦", key:"D"},
+  {symbol:"♣", key:"C"}
+];
+const ranks=["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
+
+function sameShape(shape, target) {
+  return shape.every((value, index) => value === target[index]);
+}
+
+function makeDeck(){
+  const d=[];
+  suits.forEach(s=>ranks.forEach(r=>d.push({suit:s.key,symbol:s.symbol,rank:r})));
+  return d;
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function hcp(card){
+  return {A:4,K:3,Q:2,J:1}[card.rank]||0;
+}
+function getHCP(){
+  return hand.reduce((sum,c)=>sum+hcp(c),0);
+}
+function getCounts(){
+  const c={S:0,H:0,D:0,C:0};
+  hand.forEach(x=>c[x.suit]++);
+  return c;
+}
+function getShape(){
+  const c=getCounts();
+  return [c.S,c.H,c.D,c.C].sort((a,b)=>b-a);
+}
+function getOpeningBid(){
+  const h=getHCP(), c=getCounts(), shape=getShape();
+
+  if(h>=22) return "2♣";
+  // if(sameShape(shape,bal2)) return alert(shape);alert(bal2==shape);
+
+  if(h>=12){
+    if(c.S>=5) return "1♠";
+    if(c.H>=5) return "1♥";
+    if(h>=20 && h<=21 && (sameShape(shape,bal[0]) || sameShape(shape,bal[1]) || sameShape(shape,bal[2]))) return "2NT";
+    if(h>=15 && h<=17 && (sameShape(shape,bal[0]) || sameShape(shape,bal[1]) || sameShape(shape,bal[2]))) return "1NT";
+    if(c.D==4 && c.C>=5) return "1♣";
+    if(c.D>=4) return "1♦";
+    return "1♣";
+  }
+
+  if(h>=6 && h<=11){
+    if(c.S>=7) return "3♠";
+    if(c.H>=7) return "3♥";
+    if(c.D>=7) return "3♦";
+    if(c.C>=7) return "3♣";
+    if(c.S==6 && c.H<=4) return "2♦";
+    if(c.H==6 && c.S<=4) return "2♦";
+    if(c.S==5 && (c.D>=4 || c.C>=4)) return "2♠";
+    if(c.H==5 && (c.D>=4 || c.C>=4)) return "2♥";
+  }
+  return "Pass";
+}
+function renderHand(){
+  const h=getHCP(), c=getCounts(), shape=getShape();
+  const box=document.getElementById("hand");
+  box.innerHTML="";
+  suits.forEach(s=>{
+    const cards=hand.filter(c=>c.suit===s.key)
+      .sort((a,b)=>ranks.indexOf(a.rank)-ranks.indexOf(b.rank));
+    const row=document.createElement("div");
+    row.className="suitrow";
+    row.innerHTML='<span class="suit">'+s.symbol+'</span>'+
+      '<span class="cards">'+cards.map(c=>c.rank).join(" ")+'</span>'+
+      '<span class="count">'+cards.length+' ใบ</span>';
+    box.appendChild(row);
+  });
+}
+function updateScore(){
+  const pct=total?Math.round(correct/total*100):0;
+  document.getElementById("score").textContent=`ตอบถูก ${correct} จาก ${total} ข้อ • ${pct}%`;
+}
+
+let mode="open";
+let partnerBid="1♠";
+
+function setMode(m){
+  mode=m;
+  document.getElementById("modeOpen").classList.toggle("active",m==="open");
+  document.getElementById("modeRespond").classList.toggle("active",m==="respond");
+  document.getElementById("modeRebid").classList.toggle("active",m==="rebid");
+  document.getElementById("openControls").style.display=m==="open"?"grid":"none";
+  document.getElementById("respondControls").style.display=m==="respond"?"grid":"none";
+  document.getElementById("rebidControls").style.display=m==="rebid"?"grid":"none";
+  document.getElementById("respondPanel").style.display=m==="respond"?"block":"none";
+  document.getElementById("rebidPanel").style.display=m==="rebid"?"block":"none";
+  document.getElementById("guideOpen").style.display=m==="open"?"block":"none";
+  document.getElementById("guideRespond").style.display=m==="respond"?"block":"none";
+  document.getElementById("guideRebid").style.display=m==="rebid"?"block":"none";
+  newQuestion();
+}
+
+function responseBid(){
+  const h=getHCP(), c=getCounts(), shape=getShape();
+
+  // Basic SAYC response practice after a one-level suit opening.
+  // Priority: 4+ major response, then 1NT with 6-10 HCP,
+  // then raise opener's suit when holding 3+ support.
+  if(partnerBid==="1♣"){
+    if(c.S>=5 && c.S>=c.H && h>=6) return "1♠";
+    if(c.H>=4 && h>=6) return "1♥";
+    if(c.S==4 && h>=6) return "1♠";
+    if(h>=6 && c.D>=4) return "1♦";
+    if(h>=6 && h<=9 && c.C>=5) return "2♣";
+    if(h>=10 && h<=11 && c.C>=6) return "3♣";
+    if(sameShape(shape,bal[2]) && h>=10 && h<=11) return "2NT";
+    if(h>=6 && h<=9) return "1NT";
+    return "Pass";
+  }
+
+  if(partnerBid==="1♦"){
+    if(c.S>=5 && c.S>=c.H && h>=6) return "1♠";
+    if(c.H>=4 && h>=6) return "1♥";
+    if(c.S==4 && h>=6) return "1♠";
+    if(c.D>=4 && h>=6 && h<=9) return "2♦";
+    if((sameShape(shape,bal[1]) || sameShape(shape,bal[2])) && h>=10 && h<=11) return "2NT";
+    if(c.D>=4 && h>=10 && h<=11) return "3♦";
+    if(h>=10) return "2♣";
+    return h>=6 ? "1NT" : "Pass";
+  }
+
+  if(partnerBid==="1♥"){
+    if(c.H>=3 && h>=6 && h<=9) return "2♥";
+    if(c.H>=3 && h>=10 && h<=11) return "3♥";
+    if(c.S>=4 && h>=6) return "1♠";
+    if(c.D==4 && h>=10 && c.C>=5) return "2♣";
+    if(c.D>=4 && h>=10) return "2♦";
+    if(h>=10) return "2♣";
+    return h>=6 ? "1NT" : "Pass";
+  }
+
+  if(partnerBid==="1♠"){
+    if(c.S>=3 && h>=6 && h<=9) return "2♠";
+    if(c.S>=3 && h>=10 && h<=11) return "3♠";
+    if(c.H>=5 && h>=10) return "2♥";
+    if(c.D==4 && h>=10 && c.C>=5) return "2♣";
+    if(c.D>=4 && h>=10) return "2♦";
+    if(h>=10) return "2♣";
+    return h>=6 ? "1NT" : "Pass";
+  }
+
+  /*if(partnerBid==="1NT"){
+    if(c.S>=5 && c.S>=c.H) return "2♥";
+  }*/
+
+  return "Pass";
+}
+
+
+let rebidScenario = null;
+
+function getRebidScenario(){
+  // Generate an actual opener hand whose opening bid is a one-level suit bid.
+  // The opening must match the displayed 13-card hand.
+  let opening = "";
+  for(let tries=0; tries<500; tries++){
+    deck=shuffle(makeDeck());
+    hand=deck.slice(0,13);
+    opening=getOpeningBid();
+    //if(["1♣","1♦","1♥","1♠"].includes(opening)) break;
+    if(["1♣","1♦","1♥"].includes(opening)) break;
+    opening="";
+  }
+  if(!opening){
+    // Rare fallback: keep dealing until a one-level suit opening is found.
+    do {
+      deck=shuffle(makeDeck());
+      hand=deck.slice(0,13);
+      opening=getOpeningBid();
+    //} while(!["1♣","1♦","1♥","1♠"].includes(opening));
+    } while(!["1♣","1♦","1♥"].includes(opening));
+  }
+
+  // Partner's response is a scenario prompt; the student's job is the opener's next bid.
+  /*const responseOptions = {
+    "1♣":["1♦","1♥","1♠","1NT"],
+    "1♦":["1♥","1♠","1NT"],
+    "1♥":["1♠","1NT"],
+    "1♠":["1NT"]
+  };*/
+  const responseOptions = {
+    "1♣":["1♦","1♥","1♠","1NT"],
+    "1♦":["1♥","1♠","1NT"],
+    "1♥":["1♠","1NT"]
+  };
+  const options=responseOptions[opening];
+  const response=options[Math.floor(Math.random()*options.length)];
+  return {opener:opening, response, sequence:`${opening} — ${response} — ?`};
+}
+
+function getRebidAnswer(){
+  const h=getHCP(), c=getCounts(), shape=getShape();
+  const opener=rebidScenario.opener, response=rebidScenario.response;
+
+  // Deliberately simplified training rule-set. The answer is always based on
+  // the displayed opener hand and the actual auction, not a random opening.
+  const balanced = bal.some(target => sameShape(shape,target));
+
+  /*// Rebid NT with balanced hands where the strength range fits the exercise.
+  if(balanced && h>=18 && h<=19) return "2NT";
+  if(balanced && h>=12 && h<=14) return "1NT";
+
+  // Show 6+ cards in opener's original suit.
+  const openerSuit = {"1♣":"C","1♦":"D","1♥":"H","1♠":"S"}[opener];
+  if(c[openerSuit]>=6){
+    const level = h>=16 ? "3" : "2";
+    return level + opener.slice(1);
+  }
+
+  // Raise partner's major when opener has four-card support.
+  if(response==="1♥" && c.H>=4) return h>=16 ? "3♥" : "2♥";
+  if(response==="1♠" && c.S>=4) return h>=16 ? "3♠" : "2♠";
+
+  // Show a second four-card suit where possible.
+  const suitBid = [
+    {key:"S", bid:"2♠"},
+    {key:"H", bid:"2♥"},
+    {key:"D", bid:"2♦"},
+    {key:"C", bid:"2♣"}
+  ].find(x => x.key!==openerSuit && c[x.key]>=4);
+  if(suitBid && h>=12) return suitBid.bid;
+
+  // Minimum fallback for this introductory rebid exercise.
+  return "1NT";
+  ♣♦♥♠*/
+
+  if(opener==="1♣"){
+    if(response==="1♦"){
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(c.H>=4) return h<=17 ? "1♥" : "2♥";
+      if(c.S==4) return h<=17 ? "1♠" : "2♠";
+      if(balanced && h<=14) return "1NT";
+      if(c.D==4 && h<=15) return "2♦";
+      if(c.D==4 && h>=16 && h<=18) return "3♦";
+      if(c.D==4 && h>=19) return "1♥";
+      if(hc.C>=6) return h<=15 ? "2♣" : "3♣";
+    }
+    if(response==="1♥"){
+      if(c.H==4 && h<=15) return "2♥";
+      if(c.H==4) return h<=17 ? "3♥" : "4♥";
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(c.S==4) return h<=17 ? "1♠" : "2♠";
+      if(balanced) return "1NT";
+      if(c.D==4) return h<=15 ? "2♣" : "2♦";
+      if(c.C>=6) return h<=15 ? "2♣" : "3♣";
+    }
+    if(response==="1♠"){
+      if(c.S==4 && h<=15) return "2♠";
+      if(c.S==4) return h<=17 ? "3♠" : "4♠";
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(balanced) return "1NT";
+      if(c.H==4) return h<=15 ? "2♣" : "2♥";
+      if(c.D==4) return h<=15 ? "2♣" : "2♦";
+      if(c.C>=6) return h<=15 ? "2♣" : "3♣";
+    }
+    if(response==="1NT"){
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(c.H==4 && h>=16) return "2♥";
+      if(c.S==4 && h>=16) return "2♠";
+      if(c.D==4) return h<=15 ? "2♣" : "2♦";
+      if(c.C>=6) return h<=15 ? "2♣" : "3♣";
+      if(c.C==5 && h<=15) return "2♣";
+      return "Pass";
+    }
+  }
+
+  if(opener==="1♦"){
+    if(response==="1♥"){
+      if(c.H==4 && h<=15) return "2♥";
+      if(c.H==4) return h<=17 ? "3♥" : "4♥";
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(c.S==4) return h<=17 ? "1♠" : "2♠";
+      if(balanced) return "1NT";
+      if(c.D>=6) return h<=15 ? "2♦" : "3♦";
+      if(c.C>=4) return h<=17 ? "2♣" : "3♣";
+    }
+    if(response==="1♠"){
+      if(c.S==4 && h<=15) return "2♠";
+      if(c.S==4) return h<=17 ? "3♠" : "4♠";
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(balanced) return "1NT";
+      if(c.H==4 && h>=16) return "2♥";
+      if(c.D>=6) return h<=15 ? "2♦" : "3♦";
+      if(c.C>=4) return h<=17 ? "2♣" : "3♣";
+    }
+    if(response==="1NT"){
+      if(balanced && h>=18 && h<=19) return "2NT";
+      if(c.H==4 && h>=16) return "2♥";
+      if(c.S==4 && h>=16) return "2♠";
+      if(c.D>=6 && c.C<=4) return h<=15 ? "2♦" : "3♦";
+      if(c.C>=4 && c.D>=5) return h<=17 ? "2♣" : "3♣";
+      if(h<=15) return "Pass";
+    }
+  }
+
+  if(opener==="1♥"){
+    if(response==="1♠"){
+      if(c.S==4 && h<=15) return "2♠";
+      if(c.S==4) return h<=17 ? "3♠" : "4♠";
+      if(balanced && h>=19 && h<=21) return "3NT";
+      if(balanced && h>=16 && h<=18) return "2NT";
+      if(balanced && h>=12 && h<=15) return "1NT";
+      if(c.H>=6 && h<=18) return h<=15 ? "2♥" : "3♥";
+      if((c.C>=4 && c.D==4) || c.C>=4) return h<=17 ? "2♣" : "3♣";
+      if(c.D>=4) return h<=17 ? "2♦" : "3♦";
+    }
+    if(response==="1NT"){
+      if(c.H>=6 && h<=18) return h<=15 ? "2♥" : "3♥";
+      if(c.S==4 && h>=16) return "2♠";
+      if((c.C>=4 && c.D==4) || c.C>=4) return h<=17 ? "2♣" : "3♣";
+      if(c.D>=4) return h<=17 ? "2♦" : "3♦";
+      if(balanced && h>=19 && h<=21) return "3NT";
+      if(balanced && h>=16 && h<=18) return "2NT";
+      if(balanced && h>=12 && h<=15) return "Pass";
+    }
+  }
+}
+
+function newQuestion(){
+  if(mode==="rebid"){
+    rebidScenario=getRebidScenario();
+    document.getElementById("auctionSequence").textContent=rebidScenario.sequence;
+    document.getElementById("rebidHcp").value="";
+    document.getElementById("rebidBid").value="";
+    document.getElementById("result").style.display="none";
+    renderHand();
+    const h=getHCP(), c=getCounts(), shape=getShape();
+    if(h>=19 && h<=21 && (c.C>=6 || c.D>=6 || c.S>=6 || c.H>=6)){
+      newQuestion();
+    }
+  } else if(mode==="respond"){
+    deck=shuffle(makeDeck());
+    hand=deck.slice(0,13);
+
+    const bids=["1♣","1♦","1♥","1♠"];
+    partnerBid=bids[Math.floor(Math.random()*bids.length)];
+
+    document.getElementById("partnerBid").textContent=partnerBid;
+    document.getElementById("respondHcp").value="";
+    document.getElementById("respondBid").value="";
+    document.getElementById("result").style.display="none";
+
+    renderHand();
+  } else {
+    newHand();
+  }
+}
+
+function newHand(){
+  deck=shuffle(makeDeck());
+  hand=deck.slice(0,13);
+  document.getElementById("hcp").value="";
+  document.getElementById("bid").value="";
+  const r=document.getElementById("result");
+  r.style.display="none";
+  renderHand();
+}
+function checkAnswer(){
+  if(mode==="rebid"){
+    const hcpField=document.getElementById("rebidHcp");
+    const enteredHcp=Number(hcpField.value);
+    const enteredBid=document.getElementById("rebidBid").value;
+    if(!hcpField.value || !enteredBid){
+      alert("กรุณากรอก HCP และเลือก Rebid ก่อนตรวจคำตอบ");
+      return;
+    }
+    const actualHcp=getHCP();
+    const actualBid=getRebidAnswer();
+    total++;
+    const ok=enteredHcp===actualHcp && enteredBid===actualBid;
+    if(ok) correct++;
+    const r=document.getElementById("result");
+    r.className="result "+(ok?"ok":"bad");
+    r.style.display="block";
+    r.innerHTML=ok
+      ? `🎉 Rebid ถูกต้อง! ลำดับประมูล: <b>${rebidScenario.sequence}</b>`
+      : `❌ ยังไม่ถูก — HCP จริง ${actualHcp} แต้ม • Rebid ตามกติกาแบบฝึกนี้คือ <b>${actualBid}</b>`;
+    updateScore();
+    return;
+  }
+  if(mode==="respond"){
+    const enteredHcp=Number(document.getElementById("respondHcp").value);
+    const enteredBid=document.getElementById("respondBid").value;
+    if(!document.getElementById("respondHcp").value || !enteredBid){
+      alert("กรุณากรอก HCP และเลือก Bid ตอบรับก่อนตรวจคำตอบ");
+      return;
+    }
+    const actualHcp=getHCP();
+    const actualBid=responseBid();
+    total++;
+    const ok=enteredHcp===actualHcp && enteredBid===actualBid;
+    if(ok) correct++;
+    const r=document.getElementById("result");
+    r.className="result "+(ok?"ok":"bad");
+    r.style.display="block";
+    r.innerHTML=ok
+      ? `🎉 ตอบรับถูกต้อง! เพื่อนเปิด <b>${partnerBid}</b>`
+      : `❌ ยังไม่ถูก — เพื่อนเปิด <b>${partnerBid}</b> • HCP จริง ${actualHcp} แต้ม • Bid ตอบในแบบฝึกนี้คือ <b>${actualBid}</b>`;
+    updateScore();
+    return;
+  }
+
+  const enteredHcp=Number(document.getElementById("hcp").value);
+  const enteredBid=document.getElementById("bid").value;
+  if(!enteredBid || !document.getElementById("hcp").value){
+    alert("กรุณากรอก HCP และเลือก Opening Bid ก่อนตรวจคำตอบ");
+    return;
+  }
+  const actualHcp=getHCP();
+  const actualBid=getOpeningBid();
+  total++;
+  const ok=enteredHcp===actualHcp && enteredBid===actualBid;
+  if(ok) correct++;
+  const r=document.getElementById("result");
+  r.className="result "+(ok?"ok":"bad");
+  r.style.display="block";
+  r.innerHTML=ok
+    ? "🎉 ถูกต้อง! เก่งมากค่ะ"
+    : `❌ ยังไม่ถูก — HCP จริง ${actualHcp} แต้ม • Opening Bid คือ <b>${actualBid}</b>`;
+  updateScore();
+}
+newQuestion();
+</script>
+</body>
+</html>
